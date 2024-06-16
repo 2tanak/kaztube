@@ -1,0 +1,86 @@
+// Fonts
+@import url('https://fonts.bunny.net/css?family=Nunito');
+
+// Variables
+@import 'variables';
+
+// Bootstrap
+@import 'bootstrap/scss/bootstrap';
+
+body {
+    background-color : #ffffff;
+}
+.page {
+    &__header {
+        padding       : 20px 30px;
+        display       : flex;
+        border-bottom : 1px solid #cccccc;
+
+        .header {
+            &__logo {
+                height : 24px;
+            }
+
+            &__space {
+                flex : 1 1 auto;
+            }
+        }
+    }
+}
+
+.profile-page {
+    display               : grid;
+    grid-template-areas   : 'header header' 'sidebar content';
+    grid-template-columns : 300px auto;
+
+    &__header {
+        grid-area : header;
+    }
+
+    &__sidebar {
+
+    }
+
+    &__content {
+        padding : 30px;
+    }
+}
+.video-page{
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+
+    &_main-video_container{
+        max-width: 800px;
+        .copy-message {
+            display: none;
+            color: green;
+        }
+    }
+
+    &_info {
+        &_top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .share-btn{
+            background-color: #F9F9F9;
+            color: #757575;
+            svg {
+                margin-left: 10px;
+            }
+        }
+    }
+
+    &_related-videos {
+        margin-left: 30px;
+        &_item {
+            img {
+                width: 300px;
+                height: 200px;
+            }
+        }
+    }
+}

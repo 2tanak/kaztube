@@ -1,0 +1,173 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaztube
+  labels:
+    project: kaztube
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      project: kaztube
+  template:
+    metadata:
+      labels:
+        project: kaztube
+    spec:
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames:
+            - "fpm"
+            - "redis"
+      initContainers:
+        - name: migrations
+          image: ${IMAGE_NAMESPACE}/fpm:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          command:
+            - php
+          args:
+            - artisan
+            - migrate
+            - --force
+          envFrom:
+            - configMapRef:
+                name: kaztube
+      containers:
+        - name: fpm
+          image: ${IMAGE_NAMESPACE}/fpm:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+          envFrom:
+            - configMapRef:
+                name: kaztube
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 1
+            requests:
+              memory: 256Mi
+              cpu: 400m
+          livenessProbe:
+              tcpSocket:
+                port: 9000
+              initialDelaySeconds: 5
+              periodSeconds: 10
+        - name: nginx
+          image: ${IMAGE_NAMESPACE}/nginx:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            tcpSocket:
+              port: 80
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 32Mi
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /login
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaztube-session
+  labels:
+    project: kaztube-session
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      project: kaztube-session
+  template:
+    metadata:
+      labels:
+        project: kaztube-session
+    spec:
+      containers:
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaztube-queue-worker
+  labels:
+    project: kaztube-queue-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      project: kaztube-queue-worker
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        project: kaztube-queue-worker
+    spec:
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames:
+            - "fpm"
+            - "redis"
+            - "ncanode"
+      containers:
+        - name: queue-worker
+          image: ${IMAGE_NAMESPACE}/php-cli:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          command:
+            - php
+          args:
+            - artisan
+            - queue:work
+          envFrom:
+            - configMapRef:
+                name: kaztube
+          resources:
+            limits:
+              memory: "1536Mi"
+              cpu: "0.5"
+            requests:
+              memory: "768Mi"
+              cpu: "0.2"
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+      imagePullSecrets:
+        - name: regcred
+---

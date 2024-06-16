@@ -1,0 +1,33 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kaztube-${BRANCH_NAME}
+  labels:
+    project: kaztube-${BRANCH_NAME}
+    env: testing
+    branch: ${BRANCH_NAME}
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: ${CI_PROJECT_NAME}-${BRANCH_NAME}.test.kzns.kz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kaztube-${BRANCH_NAME}
+                port:
+                  number: 80
+    - host: ${CI_PROJECT_NAME}-${BRANCH_NAME}-pma.test.kzns.kz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kaztube-${BRANCH_NAME}
+                port:
+                  number: 8080

@@ -1,0 +1,125 @@
+include:
+  - remote: 'https://gitlab.com/kravets1996/kazinsys-ci/-/raw/main/laravel/.gitlab-ci.yml'
+
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/lorisleiva/laravel-docker:8.2
+
+build_backend:
+  extends: .build_backend
+
+build_frontend:
+  needs:
+    - build_backend
+  extends: .build_frontend
+
+eslint:
+  extends: .eslint
+
+#stylelint:
+#  stage: test
+#  needs:
+#    - build_frontend
+#  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:16
+#  script:
+#    - npm ci
+#    - npx stylelint resources/
+
+#phpunit:
+#  extends: .phpunit
+#  needs: [ "build_backend" ]
+#  variables:
+#    MYSQL_DATABASE: testing
+#    MYSQL_ROOT_PASSWORD: ''
+#    MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+#  script:
+#    - XDEBUG_MODE=coverage php artisan test --parallel --colors=never --log-junit build/report.xml --coverage-clover build/coverage.xml -c phpunit-mysql.xml
+#  services:
+#    - name: mariadb:10.10
+#      alias: mysql
+#    - name: malikzh/ncanode:1.1.0
+#      alias: ncanode
+
+codestyle:
+  extends: .codestyle
+
+copypaste_check:
+  extends: .copypaste_check
+
+packages_security:
+  extends: .packages_security
+
+psalm:
+  extends: .psalm
+
+psalm_taint:
+  extends: .psalm_taint
+
+build-fpm:
+  extends: .build-image
+  variables:
+    SERVICE: fpm
+
+build-nginx:
+  extends: .build-image
+  variables:
+    SERVICE: nginx
+
+build-php-cli:
+  extends: .build-image
+  variables:
+    SERVICE: php-cli
+
+#autotests:
+#  extends: .deploy
+#  stage: autotest
+#  variables:
+#    KUBE_SELECTED_CONTEXT: kazinsys-dev/infrastructure:kazinsys-test
+#    KUBE_NAMESPACE: "kaztube"
+#  script:
+#    - export BRANCH_NAME=$(echo "$CI_COMMIT_BRANCH" | tr '[:upper:]' '[:lower:]')
+#
+#    - cat ./deploy/testing/autotest-job.yml | envsubst >> autotest-job.yml
+#
+#    - kubectl delete job idfrk-crm-autotest-job-${BRANCH_NAME} -n ${KUBE_NAMESPACE:-${CI_PROJECT_NAME}} --ignore-not-found=true
+#    - kubectl apply -f autotest-job.yml -n ${KUBE_NAMESPACE:-${CI_PROJECT_NAME}}
+#    - ./deploy/testing/bin/get-test-results.sh idfrk-crm-autotest-job-${BRANCH_NAME}
+#  artifacts:
+#    paths:
+#      - autotest-job.yml
+#      - tmp/
+#    expire_in: 30 days
+#    when: always
+
+deploy-test:
+  extends: .deploy
+  variables:
+    DEPLOYMENT_FILE: deploy/testing/deployment.yml
+    INGRESS_FILE: deploy/testing/ingress.yml
+    SERVICE_FILE: deploy/testing/service.yml
+    KUBE_SELECTED_CONTEXT: kazinsys-dev/infrastructure:kazinsys-test
+    KUBE_NAMESPACE: test-branches
+  environment:
+    name: staging/$CI_COMMIT_BRANCH
+    url: https://${CI_PROJECT_NAME}-${CI_COMMIT_BRANCH}.test.kzns.kz
+    on_stop: stop-test
+#  except:
+#    - master
+
+stop-test:
+  needs:
+    - deploy-test
+  extends: .deploy_delete
+  variables:
+    KUBE_SELECTED_CONTEXT: kazinsys-dev/infrastructure:kazinsys-test
+    KUBE_NAMESPACE: test-branches
+
+#prepare-deploy:
+#  extends: .prepare-deploy
+#  variables:
+#    DEPLOYMENT_FILE: deploy/production/deployment.yml
+#    INGRESS_FILE: deploy/production/ingress.yml
+#    SERVICE_FILE: deploy/production/service.yml
+#    KUBE_SELECTED_CONTEXT: kazinsys-dev/infrastructure:kazinsys-prod
+#    KUBE_NAMESPACE: "kaztube"
+#
+#deploy-worktime:
+#  extends: .deploy-worktime

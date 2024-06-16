@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<psalm
+        errorLevel="1"
+        resolveFromConfigFile="true"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="https://getpsalm.org/schema/config"
+        xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+        errorBaseline="psalm-baseline.xml"
+        findUnusedBaselineEntry="false"
+        findUnusedCode="false"
+>
+    <projectFiles>
+        <directory name="app"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+    <extraFiles>
+        <file name="_ide_helper.php"/>
+        <file name="_ide_helper_models.php"/>
+    </extraFiles>
+    <issueHandlers>
+        <UndefinedDocblockClass>
+            <errorLevel type="suppress">
+                <directory name="app"/>
+            </errorLevel>
+        </UndefinedDocblockClass>
+        <LessSpecificImplementedReturnType>
+            <errorLevel type="suppress">
+                <directory name="app"/>
+            </errorLevel>
+        </LessSpecificImplementedReturnType>
+        <PropertyNotSetInConstructor>
+            <errorLevel type="suppress">
+                <directory name="app"/>
+            </errorLevel>
+        </PropertyNotSetInConstructor>
+        <PossiblyUndefinedMethod>
+            <errorLevel type="suppress">
+                <referencedMethod name="Illuminate\Contracts\View\Factory::with"/>
+            </errorLevel>
+        </PossiblyUndefinedMethod>
+        <MixedAssignment>
+            <errorLevel type="suppress">
+                <directory name="app"/>
+            </errorLevel>
+        </MixedAssignment>
+    </issueHandlers>
+    <plugins>
+        <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
+    </plugins>
+</psalm>

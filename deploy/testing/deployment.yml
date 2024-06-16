@@ -1,0 +1,110 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kaztube-${BRANCH_NAME}
+  labels:
+    project: kaztube-${BRANCH_NAME}
+    env: testing
+    branch: ${BRANCH_NAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      project: kaztube-${BRANCH_NAME}
+  template:
+    metadata:
+      labels:
+        project: kaztube-${BRANCH_NAME}
+    spec:
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames:
+            - "mysql"
+            - "fpm"
+            - "redis"
+      volumes:
+        - name: shared-data
+          emptyDir: { }
+      containers:
+        - name: mysql
+          image: mariadb:10.10
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - configMapRef:
+                name: kaztube
+        - name: fpm
+          image: ${IMAGE_NAMESPACE}/fpm:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+          envFrom:
+            - configMapRef:
+                name: kaztube
+          volumeMounts:
+            - name: shared-data
+              mountPath: /code/storage/app/
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 300m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+          lifecycle:
+            postStart:
+              exec:
+                command: [ "/bin/sh", "-c", "deploy/testing/bin/install.sh" ]
+        - name: queue-worker
+          image: ${IMAGE_NAMESPACE}/php-cli:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: kaztube
+          volumeMounts:
+            - name: shared-data
+              mountPath: /code/storage/app/
+          command:
+            - php
+          args:
+            - artisan
+            - queue:work
+        - name: nginx
+          image: ${IMAGE_NAMESPACE}/nginx:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            tcpSocket:
+              port: 80
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+          volumeMounts:
+            - name: shared-data
+              mountPath: /code/storage/app/
+          lifecycle:
+            postStart:
+              exec:
+                command: [ "/bin/sh", "-c", "ln -s /code/storage/app/public /code/public/storage" ]
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+        - name: phpmyadmin
+          image: phpmyadmin
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: kaztube
+      imagePullSecrets:
+        - name: regcred

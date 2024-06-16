@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kaztube-autotest-job-${BRANCH_NAME}
+  labels:
+    project: kaztube-autotest-job-${BRANCH_NAME}
+    env: testing
+    branch: ${BRANCH_NAME}
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 0
+  template:
+    spec:
+      shareProcessNamespace: true
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames:
+            - "mysql"
+            - "fpm"
+            - "redis"
+            - "selenium"
+      volumes:
+        - name: shared-data
+          emptyDir: { }
+      containers:
+        - name: mysql
+          image: mariadb:10.8.2
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - configMapRef:
+                name: kaztube-dusk
+        - name: fpm
+          image: ${CI_REGISTRY}/${CI_PROJECT_PATH}/fpm:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+          envFrom:
+            - configMapRef:
+                name: kaztube-dusk
+          volumeMounts:
+            - name: shared-data
+              mountPath: /code/storage/app/public/
+        - name: nginx
+          image: ${CI_REGISTRY}/${CI_PROJECT_PATH}/nginx:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            tcpSocket:
+              port: 80
+          volumeMounts:
+            - name: shared-data
+              mountPath: /code/public/storage/
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+        - name: selenium
+          image: 'selenium/standalone-chrome'
+          ports:
+            - containerPort: 4444
+        - name: php
+          image: ${CI_REGISTRY}/${CI_PROJECT_PATH}/php-cli:${BRANCH_NAME}-${CI_COMMIT_SHORT_SHA}
+          command: [ "/bin/sh", "-c", "deploy/testing/bin/run-tests.sh" ]
+          envFrom:
+            - configMapRef:
+                name: kaztube-dusk
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 0
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: regcred
+
